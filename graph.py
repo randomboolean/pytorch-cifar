@@ -52,13 +52,15 @@ class GraphCrop(object):
         """
         img = img.view(3,-1)
         last_direction = -1
-        for _ in range(int(self.times_to_translate/self.repetitions)):
+        times = np.random.randint(0,self.times_to_translate+1)
+        for _ in range(times):#int(self.times_to_translate/self.repetitions)):
             direction = np.random.randint(2,6)
-            while direction == last_direction:
-                direction = np.random.randint(2,6)
-            last_direction = direction
-            for _ in range(self.repetitions):
-                img = self.shift_direction(img,direction)
+            #while direction == last_direction:
+            #    direction = np.random.randint(2,6)  
+            #last_direction = direction
+            #for _ in range(self.repetitions):
+            #    img = self.shift_direction(img,direction)
+            img = self.shift_direction(img,direction)
         img = img.view(3,32,32)
         return img
 
