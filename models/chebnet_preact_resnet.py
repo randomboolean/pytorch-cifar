@@ -14,11 +14,7 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 from torch.autograd import Function
 
-from lib.grid_graph import grid_graph
-from lib.coarsening import coarsen
-from lib.coarsening import lmax_L
-from lib.coarsening import perm_data
-from lib.coarsening import rescale_L
+from lib import *
 import numpy as np
 
 class my_sparse_mm(Function):
@@ -42,7 +38,7 @@ class my_sparse_mm(Function):
 
 class ChebConv(nn.Module):
 
-    def __init__(self, Fin, Fout, L, K, bias=bias):
+    def __init__(self, Fin, Fout, L, K, bias=False):
         super(ChebConv, self).__init__()
         self.L = L
         self.Fin = Fin
@@ -56,7 +52,7 @@ class ChebConv(nn.Module):
         if self.bias:
             self.cl.bias.data.fill_(0.0)
 
-    def forward(self, x)
+    def forward(self, x):
         #(x, cl, L, lmax, Fout, K):
 
         # parameters
@@ -120,11 +116,11 @@ class GraclusMaxPool(nn.Module):
         self.stride = stride
 
     def forward(self, x):
-    if self.stride > 1: 
-            x = x.permute(0,2,1).contiguous()  # x = B x F x V
-            x = nn.MaxPool1d(self.stride)(x)   # B x F x V/p
-            x = x.permute(0,2,1).contiguous()  # x = B x V/p x F
-            return x  
+        if self.stride > 1: 
+                x = x.permute(0,2,1).contiguous()  # x = B x F x V
+                x = nn.MaxPool1d(self.stride)(x)   # B x F x V/p
+                x = x.permute(0,2,1).contiguous()  # x = B x V/p x F
+                return x  
         else:
             return x
 
@@ -135,15 +131,14 @@ class ChebPreActBlock(nn.Module):
     def __init__(self, in_planes, planes, L1, K1, L2=None, K2=None, stride=1):
         super(ChebPreActBlock, self).__init__()
         if stride==1:
-            assert (L2 is None and K2 is None) or (L2==L1 and K2==K1)
+            assert (L2 is None and K2 is None) or (L2 is L1 and K2==K1)
             L2, K2 = L1, K1
         self.bn1 = nn.BatchNorm2d(in_planes)
         self.conv1 = ChebConv(in_planes, planes, L1, K1, bias=False) #nn.Conv2d(in_planes, planes, kernel_size=3, stride=stride, padding=1, bias=False)
         self.pool1 = GraclusMaxPool(stride)
         if stride > 1:
-
-        self.bn2 = nn.BatchNorm2d(planes)
-        self.conv2 = ChebConv(planes, planes, L2, K2, bias=False) #nn.Conv2d(planes, planes, kernel_size=3, stride=1, padding=1, bias=False)
+            self.bn2 = nn.BatchNorm2d(planes)
+            self.conv2 = ChebConv(planes, planes, L2, K2, bias=False) #nn.Conv2d(planes, planes, kernel_size=3, stride=1, padding=1, bias=False)
 
         if stride != 1 or in_planes != self.expansion*planes:
             self.shortcut = nn.Sequential(
@@ -200,18 +195,18 @@ def ChebPreActResNet18(L_list=None, K_list=None):
         L_list, perm = build_grid_graph(4)
     if K_list is None:
         K_list = [25]*len(L_list)
-    return perm, ChebPreActResNet(PreActBlock, [2,2,2,2], L_list, K_list)
+    return perm, ChebPreActResNet(ChebPreActBlock, [2,2,2,2], L_list, K_list)
 
 def ChebPreActResNet34(L_list=None, K_list=None):
     if L_list is None:
         L_list, perm = build_grid_graph(4)
     if K_list is None:
         K_list = [25]*len(L_list)
-    return perm, ChebPreActResNet(PreActBlock, [3,4,6,3], L_list, K_list)
+    return perm, ChebPreActResNet(ChebPreActBlock, [3,4,6,3], L_list, K_list)
 
 def build_grid_graph(coarsening_levels=4):
     grid_side = 32
-    number_edges = 8
+    number_edges = 4
     metric = 'euclidean'
     A = grid_graph(grid_side,number_edges,metric) # create graph of Euclidean grid
 
@@ -243,6 +238,14 @@ def reorder(perm, train_data, test_data, val_data=None):
 
     del perm
     return train_data, test_data, val_data
+
+def reorder(perm, data,):
+    # Reindex nodes to satisfy a binary tree structure
+    data = perm_data(data, perm)
+    print(data.shape)
+
+    return data
+
 
 def test():
     net = ChebPreActResNet18()

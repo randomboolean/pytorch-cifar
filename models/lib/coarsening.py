@@ -1,6 +1,7 @@
 import numpy as np
 import scipy.sparse
 import sklearn.metrics
+import torch
 
 
 def laplacian(W, normalized=True):
@@ -301,10 +302,15 @@ def perm_data(x, indices):
     if indices is None:
         return x
 
-    N, M = x.shape
+    #N, M = x.shape
+    B, C, H1, H2 = x.shape
+    N, M = B*C, H1*H2
+    x = x.view([N,M])
+
     Mnew = len(indices)
     assert Mnew >= M
-    xnew = np.empty((N, Mnew))
+    #xnew = np.empty((N, Mnew))
+    xnew =  torch.FloatTensor(N, Mnew).zero_()
     for i,j in enumerate(indices):
         # Existing vertex, i.e. real data.
         if j < M:
@@ -312,7 +318,8 @@ def perm_data(x, indices):
         # Fake vertex because of singeltons.
         # They will stay 0 so that max pooling chooses the singelton.
         # Or -infty ?
-        else:
-            xnew[:,i] = np.zeros(N)
+        #else:
+        #    xnew[:,i] = np.zeros(N)
+    xnew = xnew.view([B,C,Mnew])
     return xnew
 
