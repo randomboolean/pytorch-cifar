@@ -21,6 +21,7 @@ from torch.autograd import Variable
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
 parser.add_argument('--clip', default=0.25, type=float, help='gradient clipping value')
+parser.add_argument('--k', default=25, type=int, help='polynomial orders')
 parser.add_argument('--resume', '-r', action='store_true', help='resume from checkpoint')
 args = parser.parse_args()
 
@@ -50,7 +51,7 @@ else:
     # net = DPN92()
     # net = ShuffleNetG2()
     # net = SENet18()
-    perm, net = ChebPreActResNet18()
+    perm, net = ChebPreActResNet18(args.k)
 
 # Data
 print('==> Preparing data..')

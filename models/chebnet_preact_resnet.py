@@ -176,18 +176,14 @@ class ChebPreActResNet(nn.Module):
         out = self.linear(out)
         return out
 
-def ChebPreActResNet18(L_list=None, K_list=None):
-    if L_list is None:
-        L_list, perm = build_grid_graph(4)
-    if K_list is None:
-        K_list = [25]*len(L_list)
+def ChebPreActResNet18(K=25):
+    L_list, perm = build_grid_graph(4)
+    K_list = [K]*len(L_list)
     return perm, ChebPreActResNet(ChebPreActBlock, [2,2,2,2], L_list, K_list)
 
-def ChebPreActResNet34(L_list=None, K_list=None):
-    if L_list is None:
-        L_list, perm = build_grid_graph(4)
-    if K_list is None:
-        K_list = [25]*len(L_list)
+def ChebPreActResNet34(K=25):
+    L_list, perm = build_grid_graph(4)
+    K_list = [K]*len(L_list)
     return perm, ChebPreActResNet(ChebPreActBlock, [3,4,6,3], L_list, K_list)
 
 def build_grid_graph(coarsening_levels=4):
