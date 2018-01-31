@@ -46,7 +46,7 @@ class ChebConv(nn.Module):
         self.K = K
         self.bias = bias
         
-        self.cl = nn.Linear(K, Fout, bias)
+        self.cl = nn.Linear(K*Fin, Fout, bias)
         scale = np.sqrt( 2.0/ (Fin+Fout) )
         self.cl.weight.data.uniform_(-scale, scale)
         if self.bias:
@@ -61,6 +61,8 @@ class ChebConv(nn.Module):
         # Fin = nb input features
         # Fout = nb output features
         # K = Chebyshev order & support size
+
+        x = x.permute(0,2,1).contiguous()
         B, V, Fin = x.size(); B, V, Fin = int(B), int(V), int(Fin) 
 
         # rescale Laplacian
@@ -99,30 +101,15 @@ class ChebConv(nn.Module):
             x0, x1 = x1, x2  
         
         x = x.view([self.K, V, Fin, B])           # K x V x Fin x B     
-        x = x.permute(3,1,2,0).contiguous()  # B x V x Fin x K       
+        x = x.permute(3,1,2,0).contiguous()       # B x V x Fin x K
         x = x.view([B*V, Fin*self.K])             # B*V x Fin*K
         
         # Compose linearly Fin features to get Fout features
         x = self.cl(x)                            # B*V x Fout  
         x = x.view([B, V, self.Fout])             # B x V x Fout
+        x = x.permute(0, 2, 1).contiguous()
         
         return x
-
-class GraclusMaxPool(nn.Module):
-    '''Assuming dimensions of input are orderred for coarsening.'''
-
-    def __init__(self, stride):
-        super(GraclusMaxPool, self).__init__()
-        self.stride = stride
-
-    def forward(self, x):
-        if self.stride > 1: 
-                x = x.permute(0,2,1).contiguous()  # x = B x F x V
-                x = nn.MaxPool1d(self.stride)(x)   # B x F x V/p
-                x = x.permute(0,2,1).contiguous()  # x = B x V/p x F
-                return x  
-        else:
-            return x
 
 class ChebPreActBlock(nn.Module):
     '''Pre-activation version of the BasicBlock.'''
@@ -133,17 +120,16 @@ class ChebPreActBlock(nn.Module):
         if stride==1:
             assert (L2 is None and K2 is None) or (L2 is L1 and K2==K1)
             L2, K2 = L1, K1
-        self.bn1 = nn.BatchNorm2d(in_planes)
+        self.bn1 = nn.BatchNorm1d(in_planes)
         self.conv1 = ChebConv(in_planes, planes, L1, K1, bias=False) #nn.Conv2d(in_planes, planes, kernel_size=3, stride=stride, padding=1, bias=False)
-        self.pool1 = GraclusMaxPool(stride)
-        if stride > 1:
-            self.bn2 = nn.BatchNorm2d(planes)
-            self.conv2 = ChebConv(planes, planes, L2, K2, bias=False) #nn.Conv2d(planes, planes, kernel_size=3, stride=1, padding=1, bias=False)
+        self.pool1 = nn.MaxPool1d(stride) #assuming vertices are correctly orderred
+        self.bn2 = nn.BatchNorm1d(planes)
+        self.conv2 = ChebConv(planes, planes, L2, K2, bias=False) #nn.Conv2d(planes, planes, kernel_size=3, stride=1, padding=1, bias=False)
 
         if stride != 1 or in_planes != self.expansion*planes:
             self.shortcut = nn.Sequential(
-                nn.Conv2d(in_planes, self.expansion*planes, kernel_size=1, stride=1, bias=False))
-            self.pool2 = GraclusMaxPool(stride)
+                nn.Conv1d(in_planes, self.expansion*planes, kernel_size=1, stride=1, bias=False))
+            self.pool2 = nn.MaxPool1d(stride)
 
     def forward(self, x):
         out = F.relu(self.bn1(x))
@@ -166,7 +152,8 @@ class ChebPreActResNet(nn.Module):
         self.layer2 = self._make_layer(block, 128, num_blocks[1], stride=2, L1=L_list[0], K1=K_list[0], L2=L_list[1], K2=K_list[1])
         self.layer3 = self._make_layer(block, 256, num_blocks[2], stride=2, L1=L_list[1], K1=K_list[1], L2=L_list[2], K2=K_list[2])
         self.layer4 = self._make_layer(block, 512, num_blocks[3], stride=2, L1=L_list[2], K1=K_list[2], L2=L_list[3], K2=K_list[3])
-        self.linear = nn.Linear(512*block.expansion, num_classes)
+        #self.linear = nn.Linear(512*block.expansion, num_classes)
+        self.linear = nn.Linear(512 * block.expansion * 172, num_classes)
 
     def _make_layer(self, block, planes, num_blocks, stride, L1, K1, L2=None, K2=None):
         strides = [stride] + [1]*(num_blocks-1)
@@ -184,11 +171,10 @@ class ChebPreActResNet(nn.Module):
         out = self.layer2(out)
         out = self.layer3(out)
         out = self.layer4(out)
-        out = F.avg_pool2d(out, 4)
+        #out = F.avg_pool1d(out, 172) #F.avg_pool2d(out, 4)
         out = out.view(out.size(0), -1)
         out = self.linear(out)
         return out
-
 
 def ChebPreActResNet18(L_list=None, K_list=None):
     if L_list is None:
