@@ -213,23 +213,15 @@ def reorder(perm, train_data, test_data, val_data=None):
 
     # Reindex nodes to satisfy a binary tree structure
     train_data = perm_data(train_data, perm)
-    print(train_data.shape)
-
     test_data = perm_data(test_data, perm)
-    print(test_data.shape)
-
     if not(val_data is None):
         val_data = perm_data(val_data, perm)
-        print(val_data.shape)
-
     del perm
     return train_data, test_data, val_data
 
 def reorder(perm, data,):
     # Reindex nodes to satisfy a binary tree structure
     data = perm_data(data, perm)
-    print(data.shape)
-
     return data
 
 
