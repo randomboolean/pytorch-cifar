@@ -39,6 +39,7 @@ if args.resume:
     net = checkpoint['net']
     best_acc = checkpoint['acc']
     start_epoch = checkpoint['epoch']
+    perm, _ = ChebPreActResNet18(args.k)
 else:
     print('==> Building model..')
     # net = VGG('VGG19')
